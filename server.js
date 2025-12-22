@@ -87,15 +87,14 @@ app.use('/api/auth', authRoutes);
 app.use('/api/distributors', distributorRoutes);
 app.use('/api/products', productRoutes);
 
-// Serve static files from the React frontend app in production
-if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, 'frontend/build')));
-  
-  // Anything that doesn't match the above routes, send back the React app
-  app.get('*', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend/build', 'index.html'));
-  });
-}
+// Serve static files from the React frontend app
+const buildPath = path.join(__dirname, 'public');
+app.use(express.static(buildPath));
+
+// Anything that doesn't match the above routes, send back the React app
+app.get('*', (req, res) => {
+  res.sendFile(path.join(buildPath, 'index.html'));
+});
 
 // ============================================
 // ERROR HANDLING
