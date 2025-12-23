@@ -9,7 +9,16 @@ const {
   getAnnouncements,
   submitSuggestion,
   getSuggestions,
-  getMetrics
+  getMetrics,
+  submitReport,
+  getReports,
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+  getConversations,
+  getMessages,
+  sendMessage
 } = require('../controllers/salesRepController');
 
 // All routes require authentication as sales rep
@@ -33,5 +42,20 @@ router.get('/suggestions', getSuggestions);
 
 // Metrics
 router.get('/metrics', getMetrics);
+
+// Reports
+router.post('/reports', submitReport);
+router.get('/reports', getReports);
+
+// Tasks
+router.get('/tasks', getTasks);
+router.post('/tasks', createTask);
+router.patch('/tasks/:taskId', updateTask);
+router.delete('/tasks/:taskId', deleteTask);
+
+// Messaging
+router.get('/messages/conversations', getConversations);
+router.get('/messages/:conversationId', getMessages);
+router.post('/messages/:conversationId', sendMessage);
 
 module.exports = router;

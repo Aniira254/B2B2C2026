@@ -277,6 +277,379 @@ const getMetrics = async (req, res) => {
   }
 };
 
+/**
+ * Submit report
+ */
+const submitReport = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { title, reportType, description, period } = req.body;
+    const filePath = req.file ? req.file.path : null;
+
+    const repResult = await pool.query(
+      'SELECT id FROM sales_representatives WHERE user_id = $1',
+      [userId]
+    );
+
+    if (repResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sales rep not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO sales_reports 
+        (sales_rep_id, title, report_type, description, period, file_path, status, submitted_date)
+      VALUES ($1, $2, $3, $4, $5, $6, 'pending', CURRENT_TIMESTAMP)
+      RETURNING *`,
+      [repResult.rows[0].id, title, reportType, description, period, filePath]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Report submitted successfully',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Submit report error:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit report' });
+  }
+};
+
+/**
+ * Get reports
+ */
+const getReports = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const repResult = await pool.query(
+      'SELECT id FROM sales_representatives WHERE user_id = $1',
+      [userId]
+    );
+
+    if (repResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sales rep not found' });
+    }
+
+    const result = await pool.query(
+      `SELECT r.*, u.first_name || ' ' || u.last_name as reviewed_by
+      FROM sales_reports r
+      LEFT JOIN users u ON r.reviewed_by_id = u.id
+      WHERE r.sales_rep_id = $1
+      ORDER BY r.submitted_date DESC`,
+      [repResult.rows[0].id]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get reports error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get reports' });
+  }
+};
+
+/**
+ * Get tasks
+ */
+const getTasks = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const repResult = await pool.query(
+      'SELECT id FROM sales_representatives WHERE user_id = $1',
+      [userId]
+    );
+
+    if (repResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sales rep not found' });
+    }
+
+    const result = await pool.query(
+      `SELECT * FROM sales_tasks
+      WHERE sales_rep_id = $1
+      ORDER BY 
+        CASE status
+          WHEN 'in_progress' THEN 1
+          WHEN 'todo' THEN 2
+          WHEN 'completed' THEN 3
+        END,
+        due_date ASC NULLS LAST,
+        created_at DESC`,
+      [repResult.rows[0].id]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get tasks error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get tasks' });
+  }
+};
+
+/**
+ * Create task
+ */
+const createTask = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { title, description, priority, dueDate, status } = req.body;
+
+    const repResult = await pool.query(
+      'SELECT id FROM sales_representatives WHERE user_id = $1',
+      [userId]
+    );
+
+    if (repResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sales rep not found' });
+    }
+
+    const result = await pool.query(
+      `INSERT INTO sales_tasks 
+        (sales_rep_id, title, description, priority, due_date, status)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *`,
+      [repResult.rows[0].id, title, description || null, priority || 'medium', dueDate || null, status || 'todo']
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Task created successfully',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Create task error:', error);
+    res.status(500).json({ success: false, message: 'Failed to create task' });
+  }
+};
+
+/**
+ * Update task
+ */
+const updateTask = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { taskId } = req.params;
+    const { title, description, priority, dueDate, status } = req.body;
+
+    const repResult = await pool.query(
+      'SELECT id FROM sales_representatives WHERE user_id = $1',
+      [userId]
+    );
+
+    if (repResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sales rep not found' });
+    }
+
+    const fields = [];
+    const values = [];
+    let paramCount = 1;
+
+    if (title !== undefined) {
+      fields.push(`title = $${paramCount++}`);
+      values.push(title);
+    }
+    if (description !== undefined) {
+      fields.push(`description = $${paramCount++}`);
+      values.push(description);
+    }
+    if (priority !== undefined) {
+      fields.push(`priority = $${paramCount++}`);
+      values.push(priority);
+    }
+    if (dueDate !== undefined) {
+      fields.push(`due_date = $${paramCount++}`);
+      values.push(dueDate);
+    }
+    if (status !== undefined) {
+      fields.push(`status = $${paramCount++}`);
+      values.push(status);
+    }
+
+    if (fields.length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields to update' });
+    }
+
+    values.push(taskId, repResult.rows[0].id);
+
+    const result = await pool.query(
+      `UPDATE sales_tasks 
+      SET ${fields.join(', ')}
+      WHERE id = $${paramCount++} AND sales_rep_id = $${paramCount}
+      RETURNING *`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Task updated successfully',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Update task error:', error);
+    res.status(500).json({ success: false, message: 'Failed to update task' });
+  }
+};
+
+/**
+ * Delete task
+ */
+const deleteTask = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { taskId } = req.params;
+
+    const repResult = await pool.query(
+      'SELECT id FROM sales_representatives WHERE user_id = $1',
+      [userId]
+    );
+
+    if (repResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Sales rep not found' });
+    }
+
+    const result = await pool.query(
+      `DELETE FROM sales_tasks 
+      WHERE id = $1 AND sales_rep_id = $2
+      RETURNING *`,
+      [taskId, repResult.rows[0].id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Task not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Task deleted successfully'
+    });
+  } catch (error) {
+    console.error('Delete task error:', error);
+    res.status(500).json({ success: false, message: 'Failed to delete task' });
+  }
+};
+
+/**
+ * Get conversations
+ */
+const getConversations = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const result = await pool.query(
+      `SELECT DISTINCT 
+        c.id,
+        CASE 
+          WHEN c.participant1_id = $1 THEN u2.first_name || ' ' || u2.last_name
+          ELSE u1.first_name || ' ' || u1.last_name
+        END as participant_name,
+        CASE 
+          WHEN c.participant1_id = $1 THEN r2.name
+          ELSE r1.name
+        END as participant_role,
+        c.last_message_time,
+        (SELECT message FROM messages WHERE conversation_id = c.id ORDER BY sent_at DESC LIMIT 1) as last_message,
+        (SELECT COUNT(*) FROM messages WHERE conversation_id = c.id AND recipient_id = $1 AND is_read = false) as unread_count
+      FROM conversations c
+      JOIN users u1 ON c.participant1_id = u1.id
+      JOIN users u2 ON c.participant2_id = u2.id
+      LEFT JOIN user_roles ur1 ON u1.id = ur1.user_id
+      LEFT JOIN user_roles ur2 ON u2.id = ur2.user_id
+      LEFT JOIN roles r1 ON ur1.role_id = r1.id
+      LEFT JOIN roles r2 ON ur2.role_id = r2.id
+      WHERE c.participant1_id = $1 OR c.participant2_id = $1
+      ORDER BY c.last_message_time DESC NULLS LAST`,
+      [userId]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get conversations error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get conversations' });
+  }
+};
+
+/**
+ * Get messages
+ */
+const getMessages = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { conversationId } = req.params;
+
+    // Mark messages as read
+    await pool.query(
+      `UPDATE messages 
+      SET is_read = true 
+      WHERE conversation_id = $1 AND recipient_id = $2`,
+      [conversationId, userId]
+    );
+
+    const result = await pool.query(
+      `SELECT m.*, 
+        u.first_name || ' ' || u.last_name as sender_name
+      FROM messages m
+      JOIN users u ON m.sender_id = u.id
+      WHERE m.conversation_id = $1
+      ORDER BY m.sent_at ASC`,
+      [conversationId]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Get messages error:', error);
+    res.status(500).json({ success: false, message: 'Failed to get messages' });
+  }
+};
+
+/**
+ * Send message
+ */
+const sendMessage = async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const { conversationId } = req.params;
+    const { message } = req.body;
+
+    // Get conversation details
+    const convResult = await pool.query(
+      'SELECT * FROM conversations WHERE id = $1',
+      [conversationId]
+    );
+
+    if (convResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Conversation not found' });
+    }
+
+    const conversation = convResult.rows[0];
+    const recipientId = conversation.participant1_id === userId 
+      ? conversation.participant2_id 
+      : conversation.participant1_id;
+
+    const result = await pool.query(
+      `INSERT INTO messages (conversation_id, sender_id, recipient_id, message)
+      VALUES ($1, $2, $3, $4)
+      RETURNING *`,
+      [conversationId, userId, recipientId, message]
+    );
+
+    // Update conversation last message time
+    await pool.query(
+      'UPDATE conversations SET last_message_time = CURRENT_TIMESTAMP WHERE id = $1',
+      [conversationId]
+    );
+
+    res.status(201).json({
+      success: true,
+      message: 'Message sent successfully',
+      data: result.rows[0]
+    });
+  } catch (error) {
+    console.error('Send message error:', error);
+    res.status(500).json({ success: false, message: 'Failed to send message' });
+  }
+};
+
 module.exports = {
   getProfile,
   applyLeave,
@@ -285,5 +658,14 @@ module.exports = {
   getAnnouncements,
   submitSuggestion,
   getSuggestions,
-  getMetrics
+  getMetrics,
+  submitReport,
+  getReports,
+  getTasks,
+  createTask,
+  updateTask,
+  deleteTask,
+  getConversations,
+  getMessages,
+  sendMessage
 };
