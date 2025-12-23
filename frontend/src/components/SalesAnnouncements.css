@@ -1,0 +1,131 @@
+.sales-announcements {
+  padding: 20px 0;
+}
+
+.announcements-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.announcements-header h3 {
+  color: #333;
+}
+
+.announcements-list {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.announcement-card {
+  background: white;
+  border-left: 4px solid #667eea;
+  padding: 20px;
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.announcement-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.announcement-card.urgent {
+  border-left-color: #dc3545;
+  background: #fff5f5;
+}
+
+.announcement-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 10px;
+}
+
+.announcement-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 5px;
+}
+
+.announcement-meta {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  font-size: 0.85rem;
+  color: #666;
+  margin-bottom: 10px;
+}
+
+.announcement-author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.announcement-date {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.announcement-content {
+  color: #555;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.priority-badge {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.priority-normal {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.priority-important {
+  background: #fff3cd;
+  color: #856404;
+}
+
+.priority-urgent {
+  background: #f8d7da;
+  color: #721c24;
+}
+
+.no-announcements {
+  text-align: center;
+  padding: 60px 20px;
+  color: #999;
+}
+
+.no-announcements-icon {
+  font-size: 4rem;
+  margin-bottom: 10px;
+}
+
+.loading {
+  text-align: center;
+  padding: 40px;
+  color: #666;
+}
+
+@media (max-width: 768px) {
+  .announcement-header {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .announcement-meta {
+    flex-wrap: wrap;
+  }
+}
