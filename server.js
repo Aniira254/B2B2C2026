@@ -89,11 +89,23 @@ app.use('/api/products', productRoutes);
 
 // Serve static files from the React frontend app
 const buildPath = path.join(__dirname, 'public');
-app.use(express.static(buildPath));
+app.use(express.static(buildPath, { 
+  maxAge: '1d',
+  setHeaders: (res, path) => {
+    if (path.endsWith('.html')) {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
-// Anything that doesn't match the above routes, send back the React app
+// Anything that doesn't match the API routes, send back the React app
 app.get('*', (req, res) => {
-  res.sendFile(path.join(buildPath, 'index.html'));
+  res.sendFile(path.join(buildPath, 'index.html'), (err) => {
+    if (err) {
+      console.error('Error sending index.html:', err);
+      res.status(500).send('Error loading page');
+    }
+  });
 });
 
 // ============================================
