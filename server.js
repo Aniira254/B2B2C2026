@@ -11,6 +11,7 @@ const indexRoutes = require('./routes/index');
 const authRoutes = require('./routes/authRoutes');
 const distributorRoutes = require('./routes/distributorRoutes');
 const productRoutes = require('./routes/productRoutes');
+const salesRepRoutes = require('./routes/salesRepRoutes');
 
 // Import middleware
 const { errorHandler, notFound } = require('./middleware/errorHandler');
@@ -86,6 +87,7 @@ app.use('/api', indexRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/distributors', distributorRoutes);
 app.use('/api/products', productRoutes);
+app.use('/api/sales-reps', salesRepRoutes);
 
 // Serve static files from the React frontend app
 const buildPath = path.join(__dirname, 'public');
